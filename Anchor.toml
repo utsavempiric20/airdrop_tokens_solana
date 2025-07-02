@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-airdropper_solana = "3skgrkCMK7ntA99KBJGaTB5DWHpyrT3QgzCkVyGcHGtb"
+airdropper_solana = "5zp47zmoPwVa55PXtP5kr7URsNRMUqnhiPLLnyo5M9AQ"
 
 [registry]
 url = "https://api.apr.dev"
@@ -16,3 +16,14 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[test]
+startup_wait = 5000
+shutdown_wait = 2000
+upgradeable = false
+
+[test.validator]
+bind_address = "0.0.0.0"
+url = "http://127.0.0.1:8899"
+ledger = ".anchor/test-ledger"
+rpc_port = 8899
