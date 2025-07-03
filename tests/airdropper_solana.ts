@@ -16,6 +16,18 @@ import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 import { ASSOCIATED_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/utils/token";
 
+function u32LE(n: number) {
+  const buf = Buffer.alloc(4);
+  buf.writeUInt32LE(n, 0);
+  return buf;
+}
+
+function u64LE(n: bigint | number) {
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64LE(BigInt(n), 0);
+  return buf;
+}
+
 describe("airdropper_solana", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -25,23 +37,31 @@ describe("airdropper_solana", () => {
   const payer = (provider.wallet as NodeWallet).payer;
 
   const airdropList: Array<{ address: string; amount: number }> = [
-    { address: "5Gz…abc", amount: 100 },
-    { address: "F7x…xyz", amount: 250 },
+    {
+      address: "FDGjcBAd5Ya8UrLDanQjZLcqsDgHeoDbb8Hkf88eYDKn",
+      amount: 100_000_000_000,
+    },
+    {
+      address: "7j5N9EEPWE9J2EZh9TeVCpoprbQRYr98kTsBpzpR7hwf",
+      amount: 250_000_000_000,
+    },
+    {
+      address: "6pFmLeY3cHeQiaErwa9BcC8HPdudrYmHLYDqdx6nXYTc",
+      amount: 650_000_000_000,
+    },
   ];
 
   const leaves = airdropList.map(({ address, amount }, i) =>
     keccak256(
       Buffer.concat([
-        Buffer.from(i.toString(16).padStart(8, "0"), "hex"),
-        Buffer.from(address, "hex"),
-        Buffer.from(amount.toString(16).padStart(16, "0"), "hex"),
+        u32LE(i),
+        new PublicKey(address).toBuffer(),
+        u64LE(amount),
       ])
     )
   );
-  console.log("leaves : ", leaves);
 
   const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
-  console.log("tree : ", tree);
 
   const root = tree.getRoot().toString("hex");
   console.log("root : ", root);
@@ -51,7 +71,7 @@ describe("airdropper_solana", () => {
 
   for (let i = 0; i < leaves.length; i++) {
     const proof = tree.getProof(leaves[i]).map((x) => x.data.toString("hex"));
-    console.log("proof1 : ", proof);
+    console.log("proof : ", proof);
 
     fs.writeFileSync(`./proof-${i}.json`, JSON.stringify(proof));
   }
@@ -83,7 +103,7 @@ describe("airdropper_solana", () => {
     console.log("userAta : ", userAta.toBase58());
 
     [vault_authority, vaultBump] = await PublicKey.findProgramAddressSync(
-      [Buffer.from("distributor"), distributor_pubkey.toBuffer()],
+      [Buffer.from("distributor"), merkleRoot],
       program.programId
     );
     console.log("vault_authority : ", vault_authority.toBase58());
@@ -138,21 +158,37 @@ describe("airdropper_solana", () => {
   it("Transfer AirdropTokens", async () => {
     for (let i = 0; i < airdropList.length; i++) {
       const { address, amount } = airdropList[i];
+      const recipient = new PublicKey(address);
+
+      const recipientAta = await anchor.utils.token.associatedAddress({
+        mint: tokenMint,
+        owner: recipient,
+      });
+      try {
+        await createAssociatedTokenAccount(
+          provider.connection,
+          payer,
+          tokenMint,
+          recipient,
+          null,
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_PROGRAM_ID,
+          true
+        );
+      } catch (_) {}
 
       const leaf = leaves[i];
-      console.log("tree.getProof(leaf) : ", tree.getProof(leaf));
 
       const proof = tree.getProof(leaf).map((x) => Array.from(x.data));
 
-      console.log(`⏳ Airdropping to #${i} → ${address} (${amount})`);
-      console.log("proof :", proof);
+      console.log(`Airdropping to #${i} → ${address} (${amount})`);
 
       await program.methods
         .claim(i, new anchor.BN(amount), proof)
         .accountsStrict({
           distributor: distributor.publicKey,
           distributorTokenAccount: vaultTokenAccount,
-          userTokenAccount: userAta,
+          userTokenAccount: recipientAta,
           associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
           distributorAuthority: vault_authority,
           rent: SYSVAR_RENT_PUBKEY,
@@ -162,7 +198,7 @@ describe("airdropper_solana", () => {
         })
         .rpc();
 
-      console.log(`✅ Done #${i}`);
+      console.log(`Done #${i}`);
     }
   });
 });

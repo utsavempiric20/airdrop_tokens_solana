@@ -22,7 +22,7 @@ pub mod airdropper_solana {
     ) -> Result<()> {
         let distributor = &mut ctx.accounts.distributor;
         let (_key, bump) = Pubkey::find_program_address(
-            &[b"distributor", distributor.key().as_ref()],
+            &[b"distributor", merkle_root.as_ref()],
             ctx.program_id
         );
         distributor.merkle_root = merkle_root;
@@ -59,14 +59,12 @@ pub mod airdropper_solana {
 
         let byte_index = (index / 8) as usize;
         let bitmask = 1 << index % 8;
+
+        let claimed = (distributor.claimed_bitmap[byte_index] & bitmask) != 0;
+        require!(!claimed, AirdropError::AlreadyClaimed);
         distributor.claimed_bitmap[byte_index] |= bitmask;
 
-        require!(
-            (distributor.claimed_bitmap[byte_index] & bitmask) == 0,
-            AirdropError::AlreadyClaimed
-        );
-
-        let binding = distributor.key();
+        let binding = distributor.merkle_root;
         let vault_seeds = &[b"distributor", binding.as_ref(), &[distributor.bump]];
         let seeds = &[&vault_seeds[..]];
         let cpi_accounts = Transfer {
@@ -106,10 +104,10 @@ pub struct InitializeDistributor<'info> {
     pub distributor: Account<'info, Distributor>,
 
     /// CHECK
-    #[account(seeds = [b"distributor", distributor.key().as_ref()], bump)]
+    #[account(seeds = [b"distributor", merkle_root.as_ref()], bump)]
     pub distributor_authority: UncheckedAccount<'info>,
 
-    #[account(mut)]
+    #[account(mut, constraint = distributor_token_account.owner == distributor_authority.key())]
     pub distributor_token_account: Account<'info, TokenAccount>,
 
     #[account(mut)]
@@ -128,7 +126,7 @@ pub struct Claim<'info> {
     pub distributor: Account<'info, Distributor>,
 
     /// CHECK
-    #[account(seeds = [b"distributor", distributor.key().as_ref()], bump)]
+    #[account(mut)]
     pub distributor_authority: UncheckedAccount<'info>,
 
     #[account(mut)]
