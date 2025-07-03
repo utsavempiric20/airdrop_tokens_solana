@@ -38,7 +38,7 @@ describe("airdropper_solana", () => {
 
   const airdropList: Array<{ address: string; amount: number }> = [
     {
-      address: "FDGjcBAd5Ya8UrLDanQjZLcqsDgHeoDbb8Hkf88eYDKn",
+      address: "HQmsmTXzUymb5o383iTNccakfF4f2AzwUy4uzBuUfCbG",
       amount: 100_000_000_000,
     },
     {
@@ -155,8 +155,8 @@ describe("airdropper_solana", () => {
       .rpc();
   });
 
-  it("Transfer AirdropTokens", async () => {
-    for (let i = 0; i < airdropList.length; i++) {
+  it("Transfer AirdropTokens from admin", async () => {
+    for (let i = 1; i < airdropList.length; i++) {
       const { address, amount } = airdropList[i];
       const recipient = new PublicKey(address);
 
@@ -200,5 +200,51 @@ describe("airdropper_solana", () => {
 
       console.log(`Done #${i}`);
     }
+  });
+
+  it("Claim AirdropTokens By User", async () => {
+    const { address, amount } = airdropList[0];
+    const recipient = new PublicKey(address);
+
+    const recipientAta = await anchor.utils.token.associatedAddress({
+      mint: tokenMint,
+      owner: recipient,
+    });
+    try {
+      await createAssociatedTokenAccount(
+        provider.connection,
+        payer,
+        tokenMint,
+        recipient,
+        null,
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_PROGRAM_ID,
+        true
+      );
+    } catch (_) {}
+
+    const leaf = leaves[0];
+
+    const proof = tree.getProof(leaf).map((x) => Array.from(x.data));
+
+    console.log(`Airdropping to #${0} → ${address} (${amount})`);
+
+    await program.methods
+      .claimUserAirdrop(0, new anchor.BN(amount), proof)
+      .accountsStrict({
+        distributor: distributor.publicKey,
+        distributorTokenAccount: vaultTokenAccount,
+        userTokenAccount: recipientAta,
+        associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
+        distributorAuthority: vault_authority,
+        rent: SYSVAR_RENT_PUBKEY,
+        systemProgram: SYSTEM_PROGRAM_ID,
+        tokenMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        claimer: payer.publicKey,
+      })
+      .rpc();
+
+    console.log(`Done #${0}`);
   });
 });

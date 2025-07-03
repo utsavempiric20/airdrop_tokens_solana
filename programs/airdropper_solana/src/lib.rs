@@ -84,6 +84,56 @@ pub mod airdropper_solana {
 
         Ok(())
     }
+    pub fn claim_user_airdrop(
+        ctx: Context<ClaimUserAidrop>,
+        index: u32,
+        amount: u64,
+        proof: Vec<[u8; 32]>
+    ) -> Result<()> {
+        let distributor = &mut ctx.accounts.distributor;
+
+        let leaf = hashv(
+            &[&index.to_le_bytes(), ctx.accounts.claimer.key().as_ref(), &amount.to_le_bytes()]
+        ).0;
+
+        let mut computed = leaf;
+        for sibling in proof.iter() {
+            let (l, r) = if computed <= *sibling {
+                (computed, *sibling)
+            } else {
+                (*sibling, computed)
+            };
+            computed = hashv(&[&l, &r]).0;
+        }
+        require!(computed == distributor.merkle_root, AirdropError::InvalidMerkleRoot);
+
+        let byte_index = (index / 8) as usize;
+        let bitmask = 1 << index % 8;
+
+        let claimed = (distributor.claimed_bitmap[byte_index] & bitmask) != 0;
+        require!(!claimed, AirdropError::AlreadyClaimed);
+        distributor.claimed_bitmap[byte_index] |= bitmask;
+
+        let binding = distributor.merkle_root;
+        let vault_seeds = &[b"distributor", binding.as_ref(), &[distributor.bump]];
+        let seeds = &[&vault_seeds[..]];
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.distributor_token_account.to_account_info(),
+            to: ctx.accounts.user_token_account.to_account_info(),
+            authority: ctx.accounts.distributor_authority.to_account_info(),
+        };
+
+        transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                seeds
+            ),
+            amount
+        )?;
+
+        Ok(())
+    }
 }
 
 #[account]
@@ -134,6 +184,31 @@ pub struct Claim<'info> {
 
     #[account(mut)]
     pub user_token_account: Account<'info, TokenAccount>,
+
+    pub token_mint: Account<'info, Mint>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+pub struct ClaimUserAidrop<'info> {
+    #[account(mut, has_one = token_mint)]
+    pub distributor: Account<'info, Distributor>,
+
+    /// CHECK
+    #[account(mut)]
+    pub distributor_authority: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub distributor_token_account: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub user_token_account: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub claimer: Signer<'info>,
 
     pub token_mint: Account<'info, Mint>,
     pub associated_token_program: Program<'info, AssociatedToken>,
