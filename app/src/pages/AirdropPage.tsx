@@ -77,6 +77,13 @@ interface StoredAirdropData {
 
 const keccak256 = (data: Buffer): Buffer => Buffer.from(keccak_256(data));
 
+async function accountExists(
+  conn: anchor.web3.Connection,
+  address: PublicKey
+): Promise<boolean> {
+  return (await conn.getAccountInfo(address)) !== null;
+}
+
 const AirdropPage: React.FC = () => {
   const { publicKey, signTransaction } = useWallet();
   const { connection } = useConnection();
@@ -329,48 +336,6 @@ const AirdropPage: React.FC = () => {
       let txid = await connection.sendRawTransaction(signed.serialize());
       await connection.confirmTransaction(txid, "confirmed");
 
-      const userAta = await getAssociatedTokenAddress(
-        mintKeypair.publicKey,
-        publicKey
-      );
-
-      const createAtaTx = new Transaction().add(
-        createAssociatedTokenAccountInstruction(
-          publicKey,
-          userAta,
-          publicKey,
-          mintKeypair.publicKey
-        )
-      );
-      createAtaTx.feePayer = publicKey;
-      const recentBlockhashATA = await connection.getLatestBlockhash();
-      createAtaTx.recentBlockhash = recentBlockhashATA.blockhash;
-      createAtaTx.lastValidBlockHeight =
-        recentBlockhashATA.lastValidBlockHeight;
-
-      signed = await signTransaction(createAtaTx);
-      txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid, "confirmed");
-
-      const mintAmount = BigInt(bulkForm.totalSupply) * BigInt(1e9);
-      const mintToTx = new Transaction().add(
-        createMintToInstruction(
-          mintKeypair.publicKey,
-          userAta,
-          publicKey,
-          mintAmount
-        )
-      );
-      mintToTx.feePayer = publicKey;
-      const recentBlockhashMintTo = await connection.getLatestBlockhash();
-      mintToTx.recentBlockhash = recentBlockhashMintTo.blockhash;
-      mintToTx.lastValidBlockHeight =
-        recentBlockhashMintTo.lastValidBlockHeight;
-
-      signed = await signTransaction(mintToTx);
-      txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid, "confirmed");
-
       console.log("airdropList : ", airdropList);
       const leaves = airdropList.map(({ address, amount }, i) =>
         keccak256(
@@ -397,7 +362,23 @@ const AirdropPage: React.FC = () => {
         owner: vaultAuthority,
       });
 
-      const createAtaTxVault = new Transaction().add(
+      const userAta = await getAssociatedTokenAddress(
+        mintKeypair.publicKey,
+        publicKey
+      );
+
+      const totalSupply =
+        parseFloat(bulkForm.totalSupply) * 1e9 || 1000000000000;
+
+      const combinedTx = new Transaction().add(
+        // Create user ATA
+        createAssociatedTokenAccountInstruction(
+          publicKey,
+          userAta,
+          publicKey,
+          mintKeypair.publicKey
+        ),
+        // Create vault ATA
         createAssociatedTokenAccountInstruction(
           publicKey,
           vaultTokenAccount,
@@ -405,36 +386,29 @@ const AirdropPage: React.FC = () => {
           mintKeypair.publicKey,
           TOKEN_PROGRAM_ID,
           anchor.utils.token.ASSOCIATED_PROGRAM_ID
-        )
-      );
-      createAtaTxVault.feePayer = publicKey;
-      const recentBlockhashATAV = await connection.getLatestBlockhash();
-      createAtaTxVault.recentBlockhash = recentBlockhashATAV.blockhash;
-      createAtaTxVault.lastValidBlockHeight =
-        recentBlockhashATAV.lastValidBlockHeight;
-
-      signed = await signTransaction(createAtaTxVault);
-      txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid, "confirmed");
-
-      const totalSupply =
-        parseFloat(bulkForm.totalSupply) * 1e9 || 1000000000000;
-
-      const mintToTxVault = new Transaction().add(
+        ),
+        // Mint to user ATA
+        createMintToInstruction(
+          mintKeypair.publicKey,
+          userAta,
+          publicKey,
+          BigInt(totalSupply)
+        ),
+        // Mint to vault ATA
         createMintToInstruction(
           mintKeypair.publicKey,
           vaultTokenAccount,
           publicKey,
-          totalSupply
+          BigInt(totalSupply)
         )
       );
-      mintToTxVault.feePayer = publicKey;
-      const recentBlockhashMintToVault = await connection.getLatestBlockhash();
-      mintToTxVault.recentBlockhash = recentBlockhashMintToVault.blockhash;
-      mintToTxVault.lastValidBlockHeight =
-        recentBlockhashMintToVault.lastValidBlockHeight;
+      combinedTx.feePayer = publicKey;
+      const recentBlockhashCombined = await connection.getLatestBlockhash();
+      combinedTx.recentBlockhash = recentBlockhashCombined.blockhash;
+      combinedTx.lastValidBlockHeight =
+        recentBlockhashCombined.lastValidBlockHeight;
 
-      signed = await signTransaction(mintToTxVault);
+      signed = await signTransaction(combinedTx);
       txid = await connection.sendRawTransaction(signed.serialize());
       await connection.confirmTransaction(txid, "confirmed");
 
@@ -574,28 +548,6 @@ const AirdropPage: React.FC = () => {
       let txid = await connection.sendRawTransaction(signed.serialize());
       await connection.confirmTransaction(txid, "confirmed");
 
-      const userAta = await getAssociatedTokenAddress(
-        mintKeypair.publicKey,
-        publicKey
-      );
-
-      const createAtaTx = new Transaction().add(
-        createAssociatedTokenAccountInstruction(
-          publicKey,
-          userAta,
-          publicKey,
-          mintKeypair.publicKey
-        )
-      );
-      createAtaTx.feePayer = publicKey;
-      const recentBlockhashATA = await connection.getLatestBlockhash();
-      createAtaTx.recentBlockhash = recentBlockhashATA.blockhash;
-      createAtaTx.lastValidBlockHeight =
-        recentBlockhashATA.lastValidBlockHeight;
-
-      signed = await signTransaction(createAtaTx);
-      txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid, "confirmed");
       console.log("airdropList : ", airdropList);
       const leaves = airdropList.map(({ address, amount }, i) =>
         keccak256(
@@ -623,7 +575,23 @@ const AirdropPage: React.FC = () => {
         owner: vaultAuthority,
       });
 
-      const createAtaTxVault = new Transaction().add(
+      const userAta = await getAssociatedTokenAddress(
+        mintKeypair.publicKey,
+        publicKey
+      );
+
+      const totalSupply =
+        parseFloat(createForm.totalSupply) * 1e9 || 1000000000000;
+
+      const combinedTx = new Transaction().add(
+        // Create user ATA
+        createAssociatedTokenAccountInstruction(
+          publicKey,
+          userAta,
+          publicKey,
+          mintKeypair.publicKey
+        ),
+        // Create vault ATA
         createAssociatedTokenAccountInstruction(
           publicKey,
           vaultTokenAccount,
@@ -631,36 +599,29 @@ const AirdropPage: React.FC = () => {
           mintKeypair.publicKey,
           TOKEN_PROGRAM_ID,
           anchor.utils.token.ASSOCIATED_PROGRAM_ID
-        )
-      );
-      createAtaTxVault.feePayer = publicKey;
-      const recentBlockhashATAV = await connection.getLatestBlockhash();
-      createAtaTxVault.recentBlockhash = recentBlockhashATAV.blockhash;
-      createAtaTxVault.lastValidBlockHeight =
-        recentBlockhashATAV.lastValidBlockHeight;
-
-      signed = await signTransaction(createAtaTxVault);
-      txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid, "confirmed");
-
-      const totalSupply =
-        parseFloat(createForm.totalSupply) * 1e9 || 1000000000000;
-
-      const mintToTx = new Transaction().add(
+        ),
+        // Mint to user ATA
+        createMintToInstruction(
+          mintKeypair.publicKey,
+          userAta,
+          publicKey,
+          BigInt(totalSupply)
+        ),
+        // Mint to vault ATA
         createMintToInstruction(
           mintKeypair.publicKey,
           vaultTokenAccount,
           publicKey,
-          totalSupply
+          BigInt(totalSupply)
         )
       );
-      mintToTx.feePayer = publicKey;
-      const recentBlockhashMintTo = await connection.getLatestBlockhash();
-      mintToTx.recentBlockhash = recentBlockhashMintTo.blockhash;
-      mintToTx.lastValidBlockHeight =
-        recentBlockhashMintTo.lastValidBlockHeight;
+      combinedTx.feePayer = publicKey;
+      const recentBlockhashCombined = await connection.getLatestBlockhash();
+      combinedTx.recentBlockhash = recentBlockhashCombined.blockhash;
+      combinedTx.lastValidBlockHeight =
+        recentBlockhashCombined.lastValidBlockHeight;
 
-      signed = await signTransaction(mintToTx);
+      signed = await signTransaction(combinedTx);
       txid = await connection.sendRawTransaction(signed.serialize());
       await connection.confirmTransaction(txid, "confirmed");
 
@@ -814,26 +775,34 @@ const AirdropPage: React.FC = () => {
       });
 
       try {
-        const createAtaTxVault = new Transaction().add(
-          createAssociatedTokenAccountInstruction(
-            publicKey,
-            recipientAta,
-            publicKey,
-            new PublicKey(claimForm.tokenMint),
-            TOKEN_PROGRAM_ID,
-            anchor.utils.token.ASSOCIATED_PROGRAM_ID
-          )
+        const recipientAtaExists = await accountExists(
+          connection,
+          recipientAta
         );
-        createAtaTxVault.feePayer = publicKey;
-        const recentBlockhashATAV = await connection.getLatestBlockhash();
-        createAtaTxVault.recentBlockhash = recentBlockhashATAV.blockhash;
-        createAtaTxVault.lastValidBlockHeight =
-          recentBlockhashATAV.lastValidBlockHeight;
+        if (!recipientAtaExists) {
+          const createAtaTxVault = new Transaction().add(
+            createAssociatedTokenAccountInstruction(
+              publicKey,
+              recipientAta,
+              publicKey,
+              new PublicKey(claimForm.tokenMint),
+              TOKEN_PROGRAM_ID,
+              anchor.utils.token.ASSOCIATED_PROGRAM_ID
+            )
+          );
+          createAtaTxVault.feePayer = publicKey;
+          const recentBlockhashATAV = await connection.getLatestBlockhash();
+          createAtaTxVault.recentBlockhash = recentBlockhashATAV.blockhash;
+          createAtaTxVault.lastValidBlockHeight =
+            recentBlockhashATAV.lastValidBlockHeight;
 
-        let signed = await signTransaction(createAtaTxVault);
-        let txid = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(txid, "confirmed");
-        console.log("ATA created successfully");
+          let signed = await signTransaction(createAtaTxVault);
+          let txid = await connection.sendRawTransaction(signed.serialize());
+          await connection.confirmTransaction(txid, "confirmed");
+          console.log("ATA created successfully");
+        } else {
+          console.log("ATA already exists");
+        }
       } catch (error) {
         console.log("ATA already exists or creation failed:", error);
       }
@@ -1913,10 +1882,10 @@ const AirdropPage: React.FC = () => {
                         </p>
                         <div className="mt-2 space-y-1">
                           <p className="text-xs text-gray-500">
-                            Distributor: {recipient.distributor.slice(0, 8)}...
+                            Distributor: {recipient.distributor}
                           </p>
                           <p className="text-xs text-gray-500">
-                            Token: {recipient.tokenMint.slice(0, 8)}...
+                            Token: {recipient.tokenMint}
                           </p>
                         </div>
                       </div>
@@ -2023,9 +1992,9 @@ const AirdropPage: React.FC = () => {
                           <p className="text-sm text-gray-500">
                             Merkle Root:{" "}
                             {airdrop.merkleRoot
-                              ? Buffer.from(airdrop.merkleRoot, "hex")
-                                  .toString("hex")
-                                  .slice(0, 8) + "..."
+                              ? Buffer.from(airdrop.merkleRoot, "hex").toString(
+                                  "hex"
+                                )
                               : "N/A"}
                           </p>
                         </div>
