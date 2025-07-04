@@ -1,4 +1,4 @@
-import React from "react";
+
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useWallet } from "@solana/wallet-adapter-react";
 import AirdropPage from "./pages/AirdropPage";
@@ -51,39 +51,7 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {publicKey ? (
-          <AirdropPage />
-        ) : (
-          <div className="text-center py-20">
-            <div className="max-w-md mx-auto">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg
-                  className="w-8 h-8 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Connect Your Wallet
-              </h2>
-              <p className="text-gray-600 mb-8">
-                Connect your Solana wallet to start creating and claiming
-                airdrops
-              </p>
-              <div className="flex justify-center">
-                <WalletMultiButton className="!bg-gradient-to-r !from-blue-600 !to-indigo-600 !text-white !px-6 !py-3 !rounded-lg !font-medium hover:!from-blue-700 hover:!to-indigo-700 transition-all duration-200" />
-              </div>
-            </div>
-          </div>
-        )}
+        <AirdropPage />
       </main>
     </div>
   );
