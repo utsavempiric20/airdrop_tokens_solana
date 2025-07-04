@@ -1,0 +1,265 @@
+{
+  "address": "5zp47zmoPwVa55PXtP5kr7URsNRMUqnhiPLLnyo5M9AQ",
+  "metadata": {
+    "name": "airdropper_solana",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "claim",
+      "discriminator": [62, 198, 214, 193, 213, 159, 108, 210],
+      "accounts": [
+        {
+          "name": "distributor",
+          "writable": true
+        },
+        {
+          "name": "distributor_authority",
+          "docs": ["CHECK"],
+          "writable": true
+        },
+        {
+          "name": "distributor_token_account",
+          "writable": true
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "token_mint",
+          "relations": ["distributor"]
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "index",
+          "type": "u32"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "proof",
+          "type": {
+            "vec": {
+              "array": ["u8", 32]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "claim_user_airdrop",
+      "discriminator": [227, 231, 105, 96, 126, 54, 249, 186],
+      "accounts": [
+        {
+          "name": "distributor",
+          "writable": true
+        },
+        {
+          "name": "distributor_authority",
+          "docs": ["CHECK"],
+          "writable": true
+        },
+        {
+          "name": "distributor_token_account",
+          "writable": true
+        },
+        {
+          "name": "user_token_account",
+          "writable": true
+        },
+        {
+          "name": "claimer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_mint",
+          "relations": ["distributor"]
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "index",
+          "type": "u32"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "proof",
+          "type": {
+            "vec": {
+              "array": ["u8", 32]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "discriminator": [175, 175, 109, 31, 13, 152, 155, 237],
+      "accounts": [
+        {
+          "name": "distributor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "distributor_authority",
+          "docs": ["CHECK"],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [100, 105, 115, 116, 114, 105, 98, 117, 116, 111, 114]
+              },
+              {
+                "kind": "arg",
+                "path": "merkle_root"
+              }
+            ]
+          }
+        },
+        {
+          "name": "distributor_token_account",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "token_mint"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "merkle_root",
+          "type": {
+            "array": ["u8", 32]
+          }
+        },
+        {
+          "name": "total_supply",
+          "type": "u128"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Distributor",
+      "discriminator": [90, 90, 217, 147, 6, 32, 135, 4]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidMerkleRoot",
+      "msg": "Invalid Merkle Root"
+    },
+    {
+      "code": 6001,
+      "name": "AlreadyClaimed",
+      "msg": "Already Claimed"
+    }
+  ],
+  "types": [
+    {
+      "name": "Distributor",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "merkle_root",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "token_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_supply",
+            "type": "u128"
+          },
+          {
+            "name": "claimed_bitmap",
+            "type": {
+              "array": ["u8", 2]
+            }
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    }
+  ]
+}
